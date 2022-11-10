@@ -1,17 +1,19 @@
 package edu.upc.dsa.services;
 
-import edu.upc.dsa.data.MyObjectManager;
-import edu.upc.dsa.data.MyObjectManagerImpl;
+import edu.upc.dsa.data.MyGameManager;
+import edu.upc.dsa.data.MyGameManagerImpl;
+import edu.upc.dsa.exceptions.ErrorIdStartGameException;
+import edu.upc.dsa.exceptions.NotUserOrGameException;
 import edu.upc.dsa.exceptions.UserExistingException;
-import edu.upc.dsa.models.Credentials;
-import edu.upc.dsa.models.MyObject;
+import edu.upc.dsa.exceptions.UserHasGameException;
+import edu.upc.dsa.models.Partida;
 import edu.upc.dsa.models.User;
-import edu.upc.dsa.models.UserRegister;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
+import javax.servlet.http.Part;
 import javax.ws.rs.*;
 import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
@@ -21,9 +23,9 @@ import java.util.List;
 @Api(value = "/user", description = "Endpoint to User Service")
 @Path("/user")
 public class UserService {
-    private MyObjectManager om;
+    private MyGameManager gm;
 
-    public UserService() { this.om = MyObjectManagerImpl.getInstance(); }
+    public UserService() { this.gm = MyGameManagerImpl.getInstance(); }
 
     @POST
     @ApiOperation(value = "create a new User", notes = "Registers a new user")
@@ -34,64 +36,95 @@ public class UserService {
     })
     @Path("/")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response newUser(UserRegister user) throws UserExistingException {
-        if (user.getName() == null || user.getSurname() == null || user.getDate() == null || user.getCredentials().getMail() == null || user.getCredentials().getPassword() == null) {
+    public Response newUser(User user) throws UserExistingException {
+        if (user.getGameId() == null) {
             return Response.status(500).entity(user).build();
         }
         try {
-            this.om.register(user.getName(), user.getSurname(), user.getDate(), user.getCredentials());
+            this.gm.createUser(user.getUserId());
         }
         catch (UserExistingException e) {
+            return Response.status(501).entity(user).build();
+        } catch (ErrorIdStartGameException e) {
+            return Response.status(501).entity(user).build();
+        } catch (UserHasGameException e) {
             return Response.status(501).entity(user).build();
         }
         return Response.status(200).entity(user).build();
     }
 
     @GET
-    @ApiOperation(value = "get all Users", notes = "Gets the users ordered alphabetically")
+    @ApiOperation(value = "current level", notes = "Gets the current level of the user")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "Successful"),
+    })
+    @Path("/{id}/level")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getUserLevel(@PathParam("id") String userId) throws NotUserOrGameException {
+        int i = this.gm.userLevel(userId);
+        return Response.status(200).entity(i).build();
+    }
+
+    @GET
+    @ApiOperation(value = "current points", notes = "Gets the current points of the user")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "Successful"),
+    })
+    @Path("/{id}/points")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getUserPoints(@PathParam("id") String userId) throws NotUserOrGameException {
+        int i = this.gm.userLevel(userId);
+        return Response.status(200).entity(i).build();
+    }
+
+    @GET
+    @ApiOperation(value = "get all Users", notes = "Gets the users ordered by points")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Successful", response = User.class, responseContainer = "List"),
     })
-    @Path("/")
+    @Path("/{id}")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getUser() {
-        List<User> users = this.om.usersByAlphabet();
+    public Response getUsersByOrder(@PathParam("id") String gameId) {
+        List<User> users = this.gm.usersByPoints(gameId);
         GenericEntity<List<User>> entity = new GenericEntity<List<User>>(users) {
         };
         return Response.status(200).entity(entity).build();
     }
 
-    @POST
-    @ApiOperation(value = "login of a User", notes = "Login of a user")
+    @PUT
+    @ApiOperation(value = "end a Partida", notes = "End the current Game")
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successful"),
-            @ApiResponse(code = 500, message = "Missing Information"),
-            @ApiResponse(code = 501, message = "Error")
+            @ApiResponse(code = 201, message = "Successful"),
+            @ApiResponse(code = 404, message = "User or Game not found")
     })
-    @Path("/login")
-    @Consumes(MediaType.APPLICATION_JSON)
-    public Response loginUser(Credentials credentials) {
-        if (credentials.getMail() == null || credentials.getPassword() == null) {
-            return Response.status(500).build();
+    @Path("/{id}/end")
+    public Response updateState(@PathParam("id") String userId) throws NotUserOrGameException {
+        try {
+            this.gm.endPartida(userId);
         }
-        int i = this.om.login(credentials);
-        if (i == -1) {
-            return Response.status(501).build();
+        catch (NotUserOrGameException e) {
+            return Response.status(404).build();
         }
-        return Response.status(200).build();
+        return Response.status(201).build();
     }
 
     @GET
-    @ApiOperation(value = "get all Objects of a User", notes = "Gets the list of objects of a user")
+    @ApiOperation(value = "get all Partidas of a User", notes = "Gets the list of partidas of a user")
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successful", response = MyObject.class, responseContainer = "List"),
+            @ApiResponse(code = 200, message = "Successful", response = Partida.class, responseContainer = "List"),
+            @ApiResponse(code = 404, message = "User or Game not found")
     })
     @Path("/{id}/objects")
     @Produces(MediaType.APPLICATION_JSON)
-    public Response getObjectsByUser(@PathParam("id") String mail) {
-        List<MyObject> myObjects = this.om.objectsByUser(mail);
-        GenericEntity<List<MyObject>> entity = new GenericEntity<List<MyObject>>(myObjects) {
-        };
-        return Response.status(200).entity(entity).build();
+    public Response getPartidasByUser(@PathParam("id") String userId) throws NotUserOrGameException {
+        try {
+            List<Partida> partidas = this.gm.partidaByUser(userId);
+            GenericEntity<List<Partida>> entity = new GenericEntity<List<Partida>>(partidas) {
+            };
+            return Response.status(200).entity(entity).build();
+        }
+        catch (NotUserOrGameException e) {
+            return Response.status(404).build();
+        }
     }
 }

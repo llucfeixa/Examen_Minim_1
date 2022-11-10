@@ -4,75 +4,63 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class User {
-    String name;
-    String surname;
-    String date;
-    Credentials credentials;
-    double coins;
-    List<MyObject> myObjects;
+    String userId;
+    String gameId;
+    int points;
+    int levels;
+    List<Partida> partidas = new LinkedList<>();
 
     public User() {
     }
 
-    public User(String name, String surname, String date, Credentials credentials) {
-        this.name = name;
-        this.surname = surname;
-        this.date = date;
-        this.credentials = credentials;
-        this.coins = 50;
-        this.myObjects = new LinkedList<>();
+    public User(String userId) {
+        this.userId = userId;
+        this.gameId = null;
+        this.levels = 0;
+        this.points = 0;
     }
 
-    public String getName() {
-        return this.name;
+    public String getUserId() {
+        return this.userId;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public void setUserId(String userId) {
+        this.userId = userId;
     }
 
-    public String getSurname() {
-        return this.surname;
+    public String getGameId() {
+        return this.gameId;
     }
 
-    public void setSurname(String surname) {
-        this.surname = surname;
+    public void setGameId(String gameId) {
+        this.gameId = gameId;
     }
 
-    public String getDate() {
-        return this.date;
+    public int getPoints() {
+        return this.points;
     }
 
-    public void setDate(String date) {
-        this.date = date;
+    public void setPoints(int points) {
+        this.points = points;
     }
 
-    public Credentials getCredentials() {
-        return this.credentials;
+    public int getLevels() {
+        return this.levels;
     }
 
-    public void setCredentials(Credentials credentials) {
-        this.credentials = credentials;
+    public void setLevels(int levels) {
+        this.levels = levels;
     }
 
-    public double getCoins() {
-        return this.coins;
+    public  List<Partida> getPartidas() {
+        return this.partidas;
     }
 
-    public void setCoins(double coins) {
-        this.coins = coins;
+    public void setPartidas(List<Partida> partidas) {
+        this.partidas = partidas;
     }
 
-    public List<MyObject> getObjects() {
-        return this.myObjects;
-    }
-
-    public void setObjects(List<MyObject> myObjects) {
-        this.myObjects = myObjects;
-    }
-
-    public void addObject(MyObject myObject) {
-        this.myObjects.add(myObject);
-        this.coins = this.coins - myObject.getCoins();
+    public void setPartida(Partida partida) {
+        this.partidas.add(partida);
     }
 }
