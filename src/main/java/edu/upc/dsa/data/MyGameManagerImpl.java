@@ -11,125 +11,173 @@ import org.apache.log4j.Logger;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 
 public class MyGameManagerImpl implements MyGameManager {
     private static MyGameManager instance;
     final static Logger logger = Logger.getLogger(MyGameManagerImpl.class);
     HashMap<String, User> users;
     HashMap<String, Game> games;
-    HashMap<String, Partida> partidas;
 
     public MyGameManagerImpl() {
         users = new HashMap<>();
         games = new HashMap<>();
-        partidas = new HashMap<>();
     }
 
     @Override
     public void createUser(String userId) throws UserExistingException {
         if (users.containsKey(userId)) {
+            logger.warn("User already exists");
             throw new UserExistingException();
         }
         User newUser = new User(userId);
         users.put(userId, newUser);
+        logger.info("User " + userId + " created correctly");
     }
 
     @Override
     public void createGame(String gameId, String description, int levels) {
-        if (!games.containsKey(gameId)) {
-            Game newGame = new Game(gameId, description, levels);
-            games.put(gameId, newGame);
-        }
+        Game newGame = new Game(gameId, description, levels);
+        games.put(gameId, newGame);
+        logger.info("Game " + gameId + " created correctly with " + levels + " levels");
     }
 
     @Override
     public void startPartida(String gameId, String userId) throws ErrorIdStartGameException, UserHasGameException {
         if (!users.containsKey(userId) || !games.containsKey(gameId)) {
+            logger.warn("Error in the id of the player or game");
             throw new ErrorIdStartGameException();
         }
-        if (users.get(userId).getGameId() != null) {
+        if (users.get(userId).getPartida() != null) {
+            logger.warn("User is already playing");
             throw new UserHasGameException();
-        } else {
-            User user = users.get(userId);
-            user.setGameId(gameId);
-            user.setPoints(50);
-            user.setLevels(1);
-            if (partidas.containsKey(gameId)) {
-                partidas.get(gameId).setUser(user);
-                user.setPartida(partidas.get(gameId));
-            } else {
-                Partida newPartida = new Partida(gameId, user);
-                user.setPartida(newPartida);
-                partidas.put(gameId, newPartida);
-            }
         }
+        Partida partida = new Partida(gameId);
+        users.get(userId).setPartidaActual(partida);
+        UserPoints userPoints = new UserPoints(userId, partida.getPoints());
+        games.get(gameId).setUserPoints(userPoints);
+        Activity activity = new Activity(partida.getLevels(), partida.getPoints(), partida.getDate());
+        users.get(userId).getPartida().setActivity(activity);
+        logger.info("User " + userId + " started a game with id " + gameId);
     }
 
     @Override
     public int userLevel(String userId) throws NotUserOrGameException {
         if (!users.containsKey(userId)) {
+            logger.warn("User doesn't exist");
             throw new NotUserOrGameException();
-        } else if (users.get(userId).getGameId() == null) {
+        } else if (users.get(userId).getPartida() == null) {
+            logger.warn("User is not playing");
             throw new NotUserOrGameException();
         }
-        User userLevel = users.get(userId);
-        return userLevel.getLevels();
+        int levels = users.get(userId).getPartida().getLevels();
+        String gameId = users.get(userId).getPartida().getGameId();
+        logger.info("User " + userId + " is in level " + levels + " in the game " + gameId);
+        return levels;
     }
 
     @Override
     public int userPoints(String userId) throws NotUserOrGameException {
         if (!users.containsKey(userId)) {
+            logger.warn("User doesn't exist");
             throw new NotUserOrGameException();
-        } else if (users.get(userId).getGameId() == null) {
+        } else if (users.get(userId).getPartida() == null) {
+            logger.warn("User is not playing");
             throw new NotUserOrGameException();
         }
-        User userPoints = users.get(userId);
-        return userPoints.getPoints();
+        int points = users.get(userId).getPartida().getPoints();
+        String gameId = users.get(userId).getPartida().getGameId();
+        logger.info("User " + userId + " has " + points + " points in the game " + gameId);
+        return users.get(userId).getPartida().getPoints();
     }
 
     @Override
-    public void nextLevel(String userId) throws NotUserOrGameException {
+    public void nextLevel(int nextPoints, String userId, String date) throws NotUserOrGameException {
         if (!users.containsKey(userId)) {
+            logger.warn("User doesn't exist");
             throw new NotUserOrGameException();
         }
-        int levels = users.get(userId).getLevels();
-        users.get(userId).setLevels(levels + 1);
-        String gameId = users.get(userId).getGameId();
-        int levelsGame = games.get(gameId).getLevels();
-        if (levels + 1 == levelsGame) {
-            int points = users.get(userId).getPoints();
-            users.get(userId).setPoints(points + 100);
+        User user = users.get(userId);
+        Partida partida = user.getPartida();
+        Game game = games.get(partida.getGameId());
+        if (partida.getLevels() == game.getLevels()) {
+            int points = partida.getPoints();
+            partida.setPoints(points + nextPoints + 100);
+            partida.setDate(date);
+            Activity activity = new Activity(partida.getLevels(), partida.getPoints(), partida.getDate());
+            user.getPartida().setActivity(activity);
+            UserPoints userPoints = new UserPoints(userId, user.getPartida().getPoints());
+            games.get(user.getPartida().getGameId()).updateUserPoints(userPoints);
+            endPartida(userId);
+            logger.info("User " + userId + " ended after the last level the game " + user.getPartida().getGameId());
+        }
+        else {
+            int levels = partida.getLevels();
+            partida.setLevels(levels + 1);
+            int points = partida.getPoints();
+            partida.setPoints(points + nextPoints);
+            partida.setDate(date);
+            Activity activity = new Activity(partida.getLevels(), partida.getPoints(), partida.getDate());
+            user.getPartida().setActivity(activity);
+            UserPoints userPoints = new UserPoints(userId, user.getPartida().getPoints());
+            games.get(user.getPartida().getGameId()).updateUserPoints(userPoints);
+            logger.info("User " + userId + " advanced to the next level of game " + user.getPartida().getGameId());
         }
     }
 
     @Override
     public void endPartida(String userId) throws NotUserOrGameException {
         if (!users.containsKey(userId)) {
+            logger.warn("User doesn't exist");
             throw new NotUserOrGameException();
-        } else if (users.get(userId).getGameId() == null) {
+        } else if (users.get(userId).getPartida().getGameId() == null) {
+            logger.warn("User is not playing");
             throw new NotUserOrGameException();
         }
-        users.get(userId).setGameId(null);
+        Partida partida = users.get(userId).getPartida();
+        Activity activity = new Activity(partida.getLevels(), partida.getPoints(), partida.getDate());
+        users.get(userId).getPartida().setActivity(activity);
+        users.get(userId).setPartida(users.get(userId).getPartida());
+        users.get(userId).setPartidaActual(null);
+        logger.info("User " + userId + " ended a Partida");
     }
 
     @Override
-    public List<User> usersByPoints(String gameId) {
-        List<User> usersByPoints = partidas.get(gameId).getUsers();
+    public List<UserPoints> usersByPoints(String gameId) throws NotUserOrGameException {
+        if (!games.containsKey(gameId)) {
+            logger.warn("User doesn't exist");
+            throw new NotUserOrGameException();
+        }
+        List<UserPoints> usersByPoints = games.get(gameId).getUserPoints();
         usersByPoints.sort(new UserComparatorByPoints());
+        logger.info("Users ordered by points in game " + gameId);
         return usersByPoints;
     }
 
     @Override
     public List<Partida> partidaByUser(String userId) throws NotUserOrGameException {
         if (!users.containsKey(userId)) {
+            logger.warn("User doesn't exist");
             throw new NotUserOrGameException();
         }
+        logger.info("List of Partidas of User " + userId);
         return users.get(userId).getPartidas();
     }
 
     @Override
-    public String activityByUser(String userId) {
-        return null;
+    public List<ListActivity> activityByUser(String userId, String gameId) {
+        List<ListActivity> activities = new ArrayList<>();
+        int i = 0;
+        List<Partida> partidas = users.get(userId).getPartidas();
+        while (i < partidas.size()) {
+            if (Objects.equals(partidas.get(i).getGameId(), gameId)) {
+                ListActivity activity = new ListActivity(partidas.get(i).getActivities());
+                activities.add(activity);
+            }
+            i = i + 1;
+        }
+        logger.info("List of Activities of User " + userId);
+        return activities;
     }
 
     @Override
@@ -145,11 +193,6 @@ public class MyGameManagerImpl implements MyGameManager {
     @Override
     public User getUser(String userId) {
         return users.get(userId);
-    }
-
-    @Override
-    public Partida getPartida(String gameId) {
-        return partidas.get(gameId);
     }
 
     public static MyGameManager getInstance() {

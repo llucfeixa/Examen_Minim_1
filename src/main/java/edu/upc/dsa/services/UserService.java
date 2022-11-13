@@ -6,8 +6,7 @@ import edu.upc.dsa.exceptions.ErrorIdStartGameException;
 import edu.upc.dsa.exceptions.NotUserOrGameException;
 import edu.upc.dsa.exceptions.UserExistingException;
 import edu.upc.dsa.exceptions.UserHasGameException;
-import edu.upc.dsa.models.Partida;
-import edu.upc.dsa.models.User;
+import edu.upc.dsa.models.*;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiResponse;
@@ -28,93 +27,120 @@ public class UserService {
     public UserService() { this.gm = MyGameManagerImpl.getInstance(); }
 
     @POST
-    @ApiOperation(value = "create a new User", notes = "Registers a new user")
+    @ApiOperation(value = "creates a new User", notes = "Registers a new User")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Successful", response = User.class),
             @ApiResponse(code = 500, message = "Missing Information"),
-            @ApiResponse(code = 501, message = "Mail already registered")
+            @ApiResponse(code = 501, message = "User already exists")
     })
     @Path("/")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response newUser(User user) throws UserExistingException {
-        if (user.getGameId() == null) {
+    public Response newUser(UserRegister userRegister) throws UserExistingException {
+        User user = new User();
+        if (userRegister.getUserRegisterId() == null) {
             return Response.status(500).entity(user).build();
         }
         try {
-            this.gm.createUser(user.getUserId());
+            this.gm.createUser(userRegister.getUserRegisterId());
+            user = this.gm.getUser(userRegister.getUserRegisterId());
         }
         catch (UserExistingException e) {
-            return Response.status(501).entity(user).build();
-        } catch (ErrorIdStartGameException e) {
-            return Response.status(501).entity(user).build();
-        } catch (UserHasGameException e) {
             return Response.status(501).entity(user).build();
         }
         return Response.status(200).entity(user).build();
     }
 
+    @POST
+    @ApiOperation(value = "start a new Partida", notes = "Creates a new partida")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "Successful", response = Partida.class),
+            @ApiResponse(code = 500, message = "Missing Information"),
+            @ApiResponse(code = 501, message = "Error in the id"),
+            @ApiResponse(code = 502, message = "User is already playing")
+    })
+    @Path("/partida")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response newGame(UserGameId userGameId) throws ErrorIdStartGameException, UserHasGameException {
+        if (userGameId.getUserId() == null || userGameId.getGameId() == null) {
+            return Response.status(500).entity(userGameId).build();
+        }
+        try {
+            this.gm.startPartida(userGameId.getGameId(), userGameId.getUserId());
+        }
+        catch (ErrorIdStartGameException e) {
+            return Response.status(501).entity(userGameId).build();
+        }
+        catch (UserHasGameException e) {
+            return Response.status(502).entity(userGameId).build();
+        }
+        return Response.status(200).entity(userGameId).build();
+    }
+
     @GET
     @ApiOperation(value = "current level", notes = "Gets the current level of the user")
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successful"),
+            @ApiResponse(code = 200, message = "Successful", response = IntegerREST.class),
     })
     @Path("/{id}/level")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getUserLevel(@PathParam("id") String userId) throws NotUserOrGameException {
-        int i = this.gm.userLevel(userId);
-        return Response.status(200).entity(i).build();
+        IntegerREST levels = new IntegerREST(this.gm.userLevel(userId));
+        return Response.status(200).entity(levels).build();
     }
 
     @GET
     @ApiOperation(value = "current points", notes = "Gets the current points of the user")
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successful"),
+            @ApiResponse(code = 200, message = "Successful", response = IntegerREST.class),
     })
     @Path("/{id}/points")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getUserPoints(@PathParam("id") String userId) throws NotUserOrGameException {
-        int i = this.gm.userLevel(userId);
-        return Response.status(200).entity(i).build();
+        IntegerREST points = new IntegerREST(this.gm.userPoints(userId));
+        return Response.status(200).entity(points).build();
     }
 
-    @GET
-    @ApiOperation(value = "get all Users", notes = "Gets the users ordered by points")
+    @PUT
+    @ApiOperation(value = "next Level", notes = "Advances to the next level")
     @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "Successful", response = User.class, responseContainer = "List"),
+            @ApiResponse(code = 200, message = "Successful"),
+            @ApiResponse(code = 404, message = "User or Game not found")
     })
-    @Path("/{id}")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response getUsersByOrder(@PathParam("id") String gameId) {
-        List<User> users = this.gm.usersByPoints(gameId);
-        GenericEntity<List<User>> entity = new GenericEntity<List<User>>(users) {
-        };
-        return Response.status(200).entity(entity).build();
+    @Path("/{id}/nextLevel")
+    public Response nextLevel(@PathParam("id") String userId) throws NotUserOrGameException {
+        try {
+            this.gm.nextLevel(20, userId,"13-11-2022");
+        }
+        catch (NotUserOrGameException e) {
+            return Response.status(404).build();
+        }
+        return Response.status(200).build();
     }
 
     @PUT
     @ApiOperation(value = "end a Partida", notes = "End the current Game")
     @ApiResponses(value = {
-            @ApiResponse(code = 201, message = "Successful"),
+            @ApiResponse(code = 200, message = "Successful"),
             @ApiResponse(code = 404, message = "User or Game not found")
     })
     @Path("/{id}/end")
-    public Response updateState(@PathParam("id") String userId) throws NotUserOrGameException {
+    public Response endPartida(@PathParam("id") String userId) throws NotUserOrGameException {
         try {
             this.gm.endPartida(userId);
         }
         catch (NotUserOrGameException e) {
             return Response.status(404).build();
         }
-        return Response.status(201).build();
+        return Response.status(200).build();
     }
 
     @GET
     @ApiOperation(value = "get all Partidas of a User", notes = "Gets the list of partidas of a user")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "Successful", response = Partida.class, responseContainer = "List"),
-            @ApiResponse(code = 404, message = "User or Game not found")
+            @ApiResponse(code = 404, message = "User not found")
     })
-    @Path("/{id}/objects")
+    @Path("/{id}/partidas")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getPartidasByUser(@PathParam("id") String userId) throws NotUserOrGameException {
         try {
@@ -126,5 +152,19 @@ public class UserService {
         catch (NotUserOrGameException e) {
             return Response.status(404).build();
         }
+    }
+
+    @POST
+    @ApiOperation(value = "get activity of user", notes = "Gets the activity of a user in a game")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "Successful", response = ListActivity.class, responseContainer = "List")
+    })
+    @Path("/activities")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getActivityByUser(UserGameId userGameId) {
+        List<ListActivity> activities = this.gm.activityByUser(userGameId.getUserId(), userGameId.getGameId());
+        GenericEntity<List<ListActivity>> entity = new GenericEntity<List<ListActivity>>(activities) {
+        };
+        return Response.status(200).entity(entity).build();
     }
 }

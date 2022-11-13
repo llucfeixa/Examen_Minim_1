@@ -6,7 +6,7 @@ import edu.upc.dsa.exceptions.ErrorIdStartGameException;
 import edu.upc.dsa.exceptions.NotUserOrGameException;
 import edu.upc.dsa.exceptions.UserExistingException;
 import edu.upc.dsa.exceptions.UserHasGameException;
-import edu.upc.dsa.models.User;
+import edu.upc.dsa.models.UserPoints;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -18,7 +18,7 @@ public class MyGameManagerImplTest {
     MyGameManager gm;
 
     @Before
-    public void setUp() throws UserExistingException, ErrorIdStartGameException, UserHasGameException {
+    public void setUp() throws UserExistingException {
         gm = new MyGameManagerImpl();
         gm.createUser("Lluc");
         gm.createUser("Marc");
@@ -37,7 +37,7 @@ public class MyGameManagerImplTest {
     }
 
     @Test
-    public void testCreateUser() throws UserExistingException, ErrorIdStartGameException, UserHasGameException {
+    public void testCreateUser() throws UserExistingException {
         Assert.assertEquals(4, this.gm.numUsers());
         gm.createUser("Oriol");
         Assert.assertEquals(5, this.gm.numUsers());
@@ -53,91 +53,113 @@ public class MyGameManagerImplTest {
     @Test
     public void testStartPartida() throws ErrorIdStartGameException, UserHasGameException {
         this.gm.startPartida("1", "Lluc");
-        Assert.assertEquals("1", this.gm.getUser("Lluc").getGameId());
-        Assert.assertEquals(50, this.gm.getUser("Lluc").getPoints());
-        Assert.assertEquals(1, this.gm.getUser("Lluc").getLevels());
-        this.gm.startPartida("1", "Marc");
-        Assert.assertEquals(2, this.gm.getPartida("1").getUsers().size());
+        Assert.assertEquals("1", this.gm.getUser("Lluc").getPartida().getGameId());
+        Assert.assertEquals(50, this.gm.getUser("Lluc").getPartida().getPoints());
+        Assert.assertEquals(1, this.gm.getUser("Lluc").getPartida().getLevels());
+        this.gm.startPartida("3", "Marc");
+        Assert.assertEquals("3", this.gm.getUser("Marc").getPartida().getGameId());
+        Assert.assertEquals(50, this.gm.getUser("Marc").getPartida().getPoints());
+        Assert.assertEquals(1, this.gm.getUser("Marc").getPartida().getLevels());
+        this.gm.startPartida("1", "Jordi");
     }
 
     @Test
-    public void testUserLevel() throws ErrorIdStartGameException, UserHasGameException {
+    public void testUserLevel() throws ErrorIdStartGameException, UserHasGameException, NotUserOrGameException {
         testStartPartida();
 
-        Assert.assertEquals(1, this.gm.getUser("Lluc").getLevels());
+        Assert.assertEquals(1, this.gm.userLevel("Lluc"));
 
-        this.gm.getUser("Lluc").setLevels(2);
-        Assert.assertEquals(2, this.gm.getUser("Lluc").getLevels());
+        this.gm.getUser("Lluc").getPartida().setLevels(2);
+        Assert.assertEquals(2, this.gm.userLevel("Lluc"));
     }
 
     @Test
-    public void testUserPoints() throws ErrorIdStartGameException, UserHasGameException {
+    public void testUserPoints() throws ErrorIdStartGameException, UserHasGameException, NotUserOrGameException {
         testStartPartida();
 
-        Assert.assertEquals(50, this.gm.getUser("Lluc").getPoints());
+        Assert.assertEquals(50, this.gm.userPoints("Lluc"));
 
-        this.gm.getUser("Lluc").setPoints(100);
-        Assert.assertEquals(100, this.gm.getUser("Lluc").getPoints());
+        this.gm.getUser("Lluc").getPartida().setPoints(100);
+        Assert.assertEquals(100, this.gm.userPoints("Lluc"));
     }
 
     @Test
     public void testNextLevel() throws ErrorIdStartGameException, UserHasGameException, NotUserOrGameException {
         testStartPartida();
 
-        Assert.assertEquals(1, this.gm.getUser("Lluc").getLevels());
+        Assert.assertEquals(1, this.gm.getUser("Lluc").getPartida().getLevels());
 
-        this.gm.nextLevel("Lluc");
-        Assert.assertEquals(2, this.gm.getUser("Lluc").getLevels());
-        Assert.assertEquals(50, this.gm.getUser("Lluc").getPoints());
+        this.gm.nextLevel(20,"Lluc", "12-11-2022");
+        Assert.assertEquals(2, this.gm.getUser("Lluc").getPartida().getLevels());
+        Assert.assertEquals(70, this.gm.getUser("Lluc").getPartida().getPoints());
 
-        this.gm.nextLevel("Lluc");
-        Assert.assertEquals(3, this.gm.getUser("Lluc").getLevels());
-        Assert.assertEquals(150, this.gm.getUser("Lluc").getPoints());
+        this.gm.nextLevel(10, "Lluc", "13-11-2022");
+        Assert.assertEquals(3, this.gm.getUser("Lluc").getPartida().getLevels());
+        Assert.assertEquals(80, this.gm.getUser("Lluc").getPartida().getPoints());
     }
 
     @Test
     public void testEndPartida() throws NotUserOrGameException, ErrorIdStartGameException, UserHasGameException {
         testStartPartida();
 
-        Assert.assertEquals("1", this.gm.getUser("Lluc").getGameId());
+        Assert.assertEquals("1", this.gm.getUser("Lluc").getPartida().getGameId());
         this.gm.endPartida("Lluc");
-        Assert.assertEquals(null, this.gm.getUser("Lluc").getGameId());
+        Assert.assertNull(this.gm.getUser("Lluc").getPartida());
     }
 
     @Test
-    public void testUsersByPoints() throws ErrorIdStartGameException, UserHasGameException {
+    public void testUsersByPoints() throws ErrorIdStartGameException, UserHasGameException, NotUserOrGameException {
         testStartPartida();
 
-        this.gm.getUser("Lluc").setPoints(100);
+        this.gm.nextLevel(20, "Lluc", "13-11-2022");
 
-        List<User> usersByPoints = this.gm.usersByPoints("1");
+        List<UserPoints> usersByPoints = this.gm.usersByPoints("1");
 
         Assert.assertEquals("Lluc", usersByPoints.get(0).getUserId());
-        Assert.assertEquals(100, usersByPoints.get(0).getPoints(), 0);
+        Assert.assertEquals(70, usersByPoints.get(0).getPoints(), 0);
 
-        Assert.assertEquals("Marc", usersByPoints.get(1).getUserId());
+        Assert.assertEquals("Jordi", usersByPoints.get(1).getUserId());
         Assert.assertEquals(50, usersByPoints.get(1).getPoints(), 0);
 
-        this.gm.getUser("Marc").setPoints(200);
+        this.gm.nextLevel(50, "Jordi", "13-11-2022");
 
         usersByPoints = this.gm.usersByPoints("1");
 
-        Assert.assertEquals("Marc", usersByPoints.get(0).getUserId());
-        Assert.assertEquals(200, usersByPoints.get(0).getPoints(), 0);
+        Assert.assertEquals("Jordi", usersByPoints.get(0).getUserId());
+        Assert.assertEquals(100, usersByPoints.get(0).getPoints(), 0);
 
         Assert.assertEquals("Lluc", usersByPoints.get(1).getUserId());
-        Assert.assertEquals(100, usersByPoints.get(1).getPoints(), 0);
+        Assert.assertEquals(70, usersByPoints.get(1).getPoints(), 0);
     }
 
     @Test
-    public void testPartidaByUsers() throws ErrorIdStartGameException, UserHasGameException {
+    public void testPartidaByUsers() throws ErrorIdStartGameException, UserHasGameException, NotUserOrGameException {
         testStartPartida();
 
+        this.gm.endPartida("Lluc");
         Assert.assertEquals(1, this.gm.getUser("Lluc").getPartidas().size());
+
+        this.gm.startPartida("2", "Lluc");
+        this.gm.endPartida("Lluc");
+        Assert.assertEquals(2, this.gm.getUser("Lluc").getPartidas().size());
     }
 
     @Test
-    public void testActivityByUser() {
+    public void testActivityByUser() throws ErrorIdStartGameException, UserHasGameException, NotUserOrGameException {
+        testStartPartida();
 
+        this.gm.nextLevel(20,"Lluc", "12-11-2022");
+        this.gm.endPartida("Lluc");
+
+        Assert.assertEquals(1, this.gm.activityByUser("Lluc", "1").size());
+        Assert.assertEquals(3, this.gm.activityByUser("Lluc", "1").get(0).getActivities().size());
+
+        this.gm.startPartida("1", "Lluc");
+        this.gm.nextLevel(40,"Lluc", "13-11-2022");
+        this.gm.nextLevel(30,"Lluc", "13-11-2022");
+        this.gm.endPartida("Lluc");
+
+        Assert.assertEquals(2, this.gm.activityByUser("Lluc", "1").size());
+        Assert.assertEquals(4, this.gm.activityByUser("Lluc", "1").get(1).getActivities().size());
     }
 }

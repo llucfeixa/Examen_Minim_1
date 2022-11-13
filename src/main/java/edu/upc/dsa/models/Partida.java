@@ -1,20 +1,23 @@
 package edu.upc.dsa.models;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 
 public class Partida {
     String gameId;
-    List<User> users = new LinkedList<>();
+    int points;
+    int levels;
+    String date;
+    List<Activity> activitites;
 
     public Partida() {
     }
 
-    public Partida(String gameId, User user) {
+    public Partida(String gameId) {
         this.gameId = gameId;
-        this.users.add(user);
+        this.points = 50;
+        this.levels = 1;
+        this.activitites = new ArrayList<>();
     }
 
     public String getGameId() {
@@ -25,15 +28,39 @@ public class Partida {
         this.gameId = gameId;
     }
 
-    public List<User> getUsers() {
-        return this.users;
+    public int getPoints() {
+        return this.points;
     }
 
-    public void setUsers(List<User> users) {
-        this.users = users;
+    public void setPoints(int points) {
+        this.points = points;
     }
 
-    public void setUser(User user) {
-        this.users.add(user);
+    public int getLevels() {
+        return this.levels;
+    }
+
+    public void setLevels(int levels) {
+        this.levels = levels;
+    }
+
+    public String getDate() {
+        return this.date;
+    }
+
+    public void setDate(String date) {
+        this.date = date;
+    }
+
+    public List<Activity> getActivities() {
+        return this.activitites;
+    }
+
+    public void setActivitites(List<Activity> activitites) {
+        this.activitites = activitites;
+    }
+
+    public void setActivity(Activity activity) {
+        this.activitites.add(activity);
     }
 }
